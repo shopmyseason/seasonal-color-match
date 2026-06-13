@@ -104,7 +104,7 @@ export function ProductCatalog() {
           <div className="rounded-2xl border border-white/80 bg-white p-5 shadow-xl shadow-gray-200/40 sm:p-6">
             <form
               onSubmit={handleSearch}
-              className="flex flex-col gap-4 sm:flex-row sm:items-end"
+              className="flex flex-col gap-4 sm:flex-row sm:items-start"
             >
               {/* Gender dropdown */}
               <div className="space-y-1.5 sm:w-40 shrink-0">
