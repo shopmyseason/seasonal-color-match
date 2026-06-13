@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export function Hero() {
   return (
     <header className="relative overflow-hidden">
@@ -25,6 +27,12 @@ export function Hero() {
         <p className="mx-auto mt-5 max-w-xl text-base leading-relaxed text-gray-600 sm:text-lg">
           Discover clothing that harmonizes with your seasonal palette — scored,
           sorted, and styled for you.
+        </p>
+        <p className="mt-3 text-sm text-gray-500">
+          Not sure which season you are?{" "}
+          <Link href="/seasons" className="font-medium text-rose-600 underline underline-offset-2 hover:text-rose-700">
+            Learn about the 12 palettes →
+          </Link>
         </p>
         <div className="mx-auto mt-10 flex max-w-lg flex-wrap items-center justify-center gap-6 text-sm text-gray-600">
           <div className="flex items-center gap-2">
