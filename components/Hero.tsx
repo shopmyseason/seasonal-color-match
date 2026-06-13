@@ -20,7 +20,7 @@ export function Hero() {
           Personal color styling
         </div>
         <h1 className="font-serif text-4xl font-medium tracking-tight text-gray-900 sm:text-5xl lg:text-6xl lg:leading-[1.1]">
-          Seasonal Color Match
+          Style My Season
         </h1>
         <p className="mx-auto mt-5 max-w-xl text-base leading-relaxed text-gray-600 sm:text-lg">
           Discover clothing that harmonizes with your seasonal palette — scored,

@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { scoreAndSortProducts } from "@/lib/score-products";
+import { getBaseCategory } from "@/lib/filter-products";
 import { seasonalPalettes } from "@/src/data/seasonalPalettes";
 import type { Product, SeasonalPalette } from "@/lib/types";
 import { EmptyState } from "./EmptyState";
@@ -9,55 +10,52 @@ import { ProductCard } from "./ProductCard";
 import { ProductCardSkeleton } from "./ProductCardSkeleton";
 
 const ALL_PALETTES_VALUE = "";
+const GENDERS = ["Women's", "Men's", "Unisex"];
 
 type AmazonSearchResponse = {
   products: Product[];
-  searchTerm: string;
+  category: string;
+  gender: string;
   selectedPalette: SeasonalPalette | null;
 };
 
 export function ProductCatalog() {
-  const [searchQuery, setSearchQuery] = useState("");
+  const [category, setCategory] = useState("");
+  const [gender, setGender] = useState("");
   const [paletteValue, setPaletteValue] = useState(ALL_PALETTES_VALUE);
   const [onlyGoodMatches, setOnlyGoodMatches] = useState(false);
 
   const [results, setResults] = useState<Product[]>([]);
-  const [appliedSearchTerm, setAppliedSearchTerm] = useState("");
-  const [appliedPalette, setAppliedPalette] = useState<SeasonalPalette | null>(
-    null,
-  );
+  const [appliedCategory, setAppliedCategory] = useState("");
+  const [appliedGender, setAppliedGender] = useState("");
+  const [appliedPalette, setAppliedPalette] = useState<SeasonalPalette | null>(null);
+  const [allCategories, setAllCategories] = useState<string[]>([]);
+  const initialLoadDone = useRef(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const fetchProducts = useCallback(
-    async (term: string, palette: string) => {
+    async (cat: string, gen: string, palette: string) => {
       setIsLoading(true);
       setError(null);
 
       const params = new URLSearchParams();
-      if (term.trim()) {
-        params.set("q", term.trim());
-      }
-      if (palette) {
-        params.set("palette", palette);
-      }
+      if (cat) params.set("category", cat);
+      if (gen) params.set("gender", gen);
+      if (palette) params.set("palette", palette);
 
       try {
         const response = await fetch(`/api/amazon-search?${params.toString()}`);
-
-        if (!response.ok) {
-          throw new Error("Search failed. Please try again.");
-        }
+        if (!response.ok) throw new Error("Failed to load products. Please try again.");
 
         const data = (await response.json()) as AmazonSearchResponse;
         setResults(data.products);
-        setAppliedSearchTerm(data.searchTerm);
+        setAppliedCategory(data.category);
+        setAppliedGender(data.gender);
         setAppliedPalette(data.selectedPalette);
       } catch (err) {
         setResults([]);
-        setError(
-          err instanceof Error ? err.message : "Something went wrong.",
-        );
+        setError(err instanceof Error ? err.message : "Something went wrong.");
       } finally {
         setIsLoading(false);
       }
@@ -66,8 +64,17 @@ export function ProductCatalog() {
   );
 
   useEffect(() => {
-    fetchProducts("", "");
+    fetchProducts("", "", "");
   }, [fetchProducts]);
+
+  // Derive category options from the initial full product list
+  useEffect(() => {
+    if (!initialLoadDone.current && results.length > 0) {
+      initialLoadDone.current = true;
+      const bases = Array.from(new Set(results.map((p) => getBaseCategory(p.category)))).sort();
+      setAllCategories(bases);
+    }
+  }, [results]);
 
   const productsWithScores = useMemo(
     () => scoreAndSortProducts(results, appliedPalette, onlyGoodMatches),
@@ -75,20 +82,19 @@ export function ProductCatalog() {
   );
 
   const hasActiveFilters =
-    appliedSearchTerm.trim().length > 0 ||
-    appliedPalette !== null ||
-    onlyGoodMatches;
+    !!appliedCategory || !!appliedGender || appliedPalette !== null || onlyGoodMatches;
 
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();
-    fetchProducts(searchQuery, paletteValue);
+    fetchProducts(category, gender, paletteValue);
   }
 
   function clearFilters() {
-    setSearchQuery("");
+    setCategory("");
+    setGender("");
     setPaletteValue(ALL_PALETTES_VALUE);
     setOnlyGoodMatches(false);
-    fetchProducts("", "");
+    fetchProducts("", "", "");
   }
 
   return (
@@ -100,22 +106,46 @@ export function ProductCatalog() {
               onSubmit={handleSearch}
               className="flex flex-col gap-4 sm:flex-row sm:items-end"
             >
-              <div className="flex-1 space-y-1.5">
+              {/* Gender dropdown */}
+              <div className="space-y-1.5 sm:w-40 shrink-0">
                 <label
-                  htmlFor="product-search"
+                  htmlFor="gender-select"
                   className="text-xs font-semibold uppercase tracking-wider text-gray-500"
                 >
-                  Search
+                  Gender
                 </label>
-                <input
-                  id="product-search"
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Dresses, blouses, sweaters..."
-                  autoComplete="off"
-                  className="w-full rounded-xl border border-gray-200 bg-gray-50/80 px-4 py-3 text-gray-900 placeholder:text-gray-400 transition-all focus:border-rose-300 focus:bg-white focus:outline-none focus:ring-4 focus:ring-rose-100/80"
-                />
+                <select
+                  id="gender-select"
+                  value={gender}
+                  onChange={(e) => setGender(e.target.value)}
+                  className="w-full appearance-none rounded-xl border border-gray-200 bg-gray-50/80 px-4 py-3 text-gray-900 transition-all focus:border-rose-300 focus:bg-white focus:outline-none focus:ring-4 focus:ring-rose-100/80"
+                >
+                  <option value="">All</option>
+                  {GENDERS.map((g) => (
+                    <option key={g} value={g}>{g}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Category dropdown */}
+              <div className="flex-1 space-y-1.5">
+                <label
+                  htmlFor="category-select"
+                  className="text-xs font-semibold uppercase tracking-wider text-gray-500"
+                >
+                  Category
+                </label>
+                <select
+                  id="category-select"
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value)}
+                  className="w-full appearance-none rounded-xl border border-gray-200 bg-gray-50/80 px-4 py-3 text-gray-900 transition-all focus:border-rose-300 focus:bg-white focus:outline-none focus:ring-4 focus:ring-rose-100/80"
+                >
+                  <option value="">All categories</option>
+                  {allCategories.map((cat) => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
+                </select>
               </div>
 
               <div className="space-y-3 sm:w-56">
@@ -159,7 +189,7 @@ export function ProductCatalog() {
                 {isLoading ? (
                   <span className="flex items-center justify-center gap-2">
                     <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                    Searching
+                    Loading
                   </span>
                 ) : (
                   "Search"
@@ -190,9 +220,14 @@ export function ProductCatalog() {
 
             {hasActiveFilters && !isLoading && !error && (
               <div className="flex flex-wrap items-center gap-2">
-                {appliedSearchTerm.trim() && (
+                {appliedGender && (
                   <span className="rounded-full border border-gray-200 bg-white px-3 py-1 text-xs font-medium text-gray-600 shadow-sm">
-                    &ldquo;{appliedSearchTerm.trim()}&rdquo;
+                    {appliedGender}
+                  </span>
+                )}
+                {appliedCategory && (
+                  <span className="rounded-full border border-gray-200 bg-white px-3 py-1 text-xs font-medium text-gray-600 shadow-sm">
+                    {appliedCategory}
                   </span>
                 )}
                 {appliedPalette && (
@@ -227,7 +262,7 @@ export function ProductCatalog() {
               <p className="text-gray-600">{error}</p>
               <button
                 type="button"
-                onClick={() => fetchProducts(searchQuery, paletteValue)}
+                onClick={() => fetchProducts(category, gender, paletteValue)}
                 className="mt-6 rounded-full bg-gray-900 px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-gray-800"
               >
                 Try again
@@ -235,17 +270,15 @@ export function ProductCatalog() {
             </div>
           ) : productsWithScores.length > 0 ? (
             <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {productsWithScores.map(
-                ({ product, matchScore, hasAvoidWarning }) => (
-                  <ProductCard
-                    key={product.id}
-                    product={product}
-                    matchScore={matchScore}
-                    hasAvoidWarning={hasAvoidWarning}
-                    selectedPalette={appliedPalette}
-                  />
-                ),
-              )}
+              {productsWithScores.map(({ product, matchScore, hasAvoidWarning }) => (
+                <ProductCard
+                  key={product.id}
+                  product={product}
+                  matchScore={matchScore}
+                  hasAvoidWarning={hasAvoidWarning}
+                  selectedPalette={appliedPalette}
+                />
+              ))}
             </div>
           ) : (
             <EmptyState

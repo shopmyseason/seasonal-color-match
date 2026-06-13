@@ -15,7 +15,7 @@ const sans = Nunito_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Seasonal Color Match",
+  title: "Style My Season",
   description:
     "Find clothing that harmonizes with your seasonal color palette.",
 };

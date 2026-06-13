@@ -16,13 +16,13 @@ function parseSelectedPalette(value: string | null): SeasonalPalette | null {
 
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
-  const searchTerm = searchParams.get("q") ?? searchParams.get("search") ?? "";
+  const category = searchParams.get("category") ?? "";
+  const gender = searchParams.get("gender") ?? "";
   const paletteParam = searchParams.get("palette") ?? searchParams.get("selectedPalette") ?? "";
   const selectedPalette = parseSelectedPalette(paletteParam);
 
   const allProducts = await readProductsFile();
-  // Palette filtering is score-based on the client; API only filters by search term.
-  const products = filterProducts(allProducts, searchTerm, null);
+  const products = filterProducts(allProducts, category, gender);
 
-  return NextResponse.json({ products, searchTerm, selectedPalette });
+  return NextResponse.json({ products, category, gender, selectedPalette });
 }
