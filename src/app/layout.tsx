@@ -18,6 +18,9 @@ export const metadata: Metadata = {
   title: "Style My Season",
   description:
     "Find clothing that harmonizes with your seasonal color palette.",
+  other: {
+    "fo-verify": "5972e2a7-3631-4a2f-99ec-1387e89657c6",
+  },
 };
 
 export default function RootLayout({

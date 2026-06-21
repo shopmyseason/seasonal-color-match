@@ -59,7 +59,7 @@ export function ProductCard({
         rel="noopener noreferrer"
         className="relative aspect-[4/5] overflow-hidden block"
         style={{
-          background: `linear-gradient(145deg, ${product.hex}cc 0%, ${product.hex} 100%)`,
+          backgroundColor: product.imageUrl ? "#ffffff" : product.hex,
         }}
         tabIndex={-1}
         aria-hidden
@@ -70,7 +70,7 @@ export function ProductCard({
             alt={product.productName}
             fill
             sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
-            className="object-cover transition-transform duration-500 ease-out group-hover:scale-105"
+            className="object-contain object-top transition-transform duration-500 ease-out group-hover:scale-105"
           />
         ) : (
           <div className="flex h-full w-full flex-col items-center justify-center gap-3 p-6 text-center">

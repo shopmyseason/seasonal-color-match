@@ -3,6 +3,8 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { readProductsFile, writeProductsFile } from "@/src/lib/products-store";
 import { seasonalPaletteNames, type SeasonalPalette } from "@/src/data/seasonalPalettes";
+import { extractColorsFromImage } from "@/src/lib/extractColors";
+import { classifyByExtractedColors } from "@/src/lib/classifyPalette";
 
 export type AnalyzedVariant = {
   productName: string;
@@ -136,27 +138,46 @@ Return ONLY a valid JSON array, no explanation or markdown fences.`;
     // Build a lookup of color name → imageUrl from page parse
     const imageByColor = new Map(pageData.colors.map(c => [c.name.toLowerCase(), c.imageUrl]));
 
-    const variants: AnalyzedVariant[] = raw.map((v) => {
-      const colorName = String(v.colorName ?? "");
-      // Match image by exact color name (case-insensitive)
-      const imageUrl = imageByColor.get(colorName.toLowerCase()) ?? "";
-      return {
-        productName: String(v.productName ?? ""),
-        brand: String(v.brand ?? ""),
-        category: String(v.category ?? ""),
-        asin: String(v.asin ?? asin),
-        amazonUrl: `https://www.amazon.com/dp/${asin}`,
-        affiliateUrl: buildAffiliateUrl(asin),
-        colorName,
-        hex: String(v.hex ?? "#888888"),
-        seasonalPalette: (seasonalPaletteNames.includes(v.seasonalPalette as SeasonalPalette)
+    // Extract real colors from each variant's image and classify
+    const variants: AnalyzedVariant[] = await Promise.all(
+      raw.map(async (v) => {
+        const colorName = String(v.colorName ?? "");
+        const imageUrl = imageByColor.get(colorName.toLowerCase()) ?? "";
+
+        // Extract dominant color from the actual product image
+        let hex = String(v.hex ?? "#888888");
+        let seasonalPalette: SeasonalPalette = (seasonalPaletteNames.includes(v.seasonalPalette as SeasonalPalette)
           ? v.seasonalPalette
-          : "Light Spring") as SeasonalPalette,
-        price: pageData.price ?? (v.price != null && v.price !== "" ? Number(v.price) : null),
-        imageUrl,
-        notes: String(v.notes ?? ""),
-      };
-    });
+          : "Light Spring") as SeasonalPalette;
+
+        if (imageUrl) {
+          try {
+            const extracted = await extractColorsFromImage(imageUrl, 5);
+            if (extracted.length > 0) {
+              hex = extracted[0].hex;
+              seasonalPalette = classifyByExtractedColors(extracted);
+            }
+          } catch {
+            // Fall back to Claude's estimate
+          }
+        }
+
+        return {
+          productName: String(v.productName ?? ""),
+          brand: String(v.brand ?? ""),
+          category: String(v.category ?? ""),
+          asin: String(v.asin ?? asin),
+          amazonUrl: `https://www.amazon.com/dp/${asin}`,
+          affiliateUrl: buildAffiliateUrl(asin),
+          colorName,
+          hex,
+          seasonalPalette,
+          price: pageData.price ?? (v.price != null && v.price !== "" ? Number(v.price) : null),
+          imageUrl,
+          notes: String(v.notes ?? ""),
+        };
+      }),
+    );
 
     return { ok: true, variants };
   } catch (err) {

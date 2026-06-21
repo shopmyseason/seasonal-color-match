@@ -15,11 +15,19 @@ export async function readProductsFile(): Promise<Product[]> {
       const { blobs } = await list({ prefix: BLOB_PATHNAME });
       const blob = blobs.find((b) => b.pathname === BLOB_PATHNAME);
       if (blob) {
-        const res = await fetch(blob.url, { cache: "no-store" });
-        return res.json() as Promise<Product[]>;
+        const res = await fetch(blob.url, {
+          cache: "no-store",
+          headers: { Accept: "application/json" },
+        });
+        const text = await res.text();
+        // Guard against CDN returning HTML error pages
+        if (res.ok && text.trimStart().startsWith("[")) {
+          return JSON.parse(text) as Product[];
+        }
+        console.error("Blob fetch returned unexpected content:", res.status, text.slice(0, 200));
       }
-    } catch {
-      // blob not yet seeded — fall through to static file
+    } catch (err) {
+      console.error("Blob read failed:", err);
     }
   }
   // Local dev, or first deploy before any write has seeded the blob
